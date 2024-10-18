@@ -2,8 +2,6 @@ import asyncio
 import logging
 from bleak import BleakClient, BleakScanner
 import sys
-import termios
-import tty
 
 logging.basicConfig(level="INFO")
 
@@ -13,20 +11,11 @@ CHARACTERISTIC_APPLICATION_UUID = "50052901-74fb-4481-88b3-9919b1676e93"
 # Globale variabelen voor motorsnelheden
 motor_port_data_1 = 0  # Snelheid voor motor 1 (poort 1)
 motor_port_data_4 = 0  # Snelheid voor motor 4 (poort 4)
+prev_motor_port_data_1 = None  # Voor controle op verandering
+prev_motor_port_data_4 = None  # Voor controle op verandering
 max_speed = 127  # Maximale snelheid voor de motoren
-speed_increment = 5  # Hoeveelheid waarmee de snelheid per stap toeneemt
-
-# Functie om toetsenbordinput asynchroon te lezen op Unix-systemen
-async def read_input():
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
-    try:
-        tty.setcbreak(fd)
-        while True:
-            ch = sys.stdin.read(1)
-            yield ch
-    finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+speed_increment = 5  # Hoeveelheid waarmee de snelheid per stap toeneemt voor motor 1
+speed_increment_motor_4 = 2  # Lagere snelheidsstappen voor motor 4
 
 async def select_bluetooth_device():
     """Scan voor Bluetooth-apparaten en selecteer er een"""
@@ -46,50 +35,55 @@ async def select_bluetooth_device():
         except (IndexError, UnboundLocalError, ValueError):
             logging.info("Probeer het opnieuw")
 
-def convert_speed_to_byte(speed):
-    """Zet de snelheidswaarde om naar een byte (0-255) voor de motorcontrole"""
-    if speed < 0:
-        # Voor negatieve snelheden: voeg 256 toe (bijv. -5 wordt 251)
-        return 256 + speed
-    return speed
-
 async def send_motor_command(client, speed_1, speed_4):
     """Verstuur motorsnelheidscommando naar BuWizz"""
-    # Converteer de snelheidswaarden naar bytes (0-255)
-    speed_1_byte = convert_speed_to_byte(speed_1)
-    speed_4_byte = convert_speed_to_byte(speed_4)
+    
+    # Zet negatieve snelheden om in waardes tussen 128 en 255
+    def transform_speed(speed):
+        if speed < 0:
+            return 256 + speed  # Hierdoor wordt -1 -> 255, -127 -> 129 etc.
+        return speed
 
-    # Creëer de bytearray voor de motoren
-    b_array = bytearray([0x30, speed_1_byte, 0x00, 0x00, speed_4_byte, 0x00, 0x00, 0x00, 0x00])
+    # Pas de snelheden aan
+    transformed_speed_1 = transform_speed(speed_1)
+    transformed_speed_4 = transform_speed(speed_4)
 
-    logging.info(f"Sending speeds - Motor 1: {speed_1} ({speed_1_byte}), Motor 4: {speed_4} ({speed_4_byte})")
+    # Maak de bytearray met de aangepaste snelheden
+    b_array = bytearray([0x30, transformed_speed_1, 0x00, 0x00, transformed_speed_4, 0x00, 0x00, 0x00, 0x00])
     await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
 
 async def motor_control(client):
-    global motor_port_data_1, motor_port_data_4
+    global motor_port_data_1, motor_port_data_4, prev_motor_port_data_1, prev_motor_port_data_4
     logging.info("Start de motorbesturingslus...")
 
     while True:
-        # Besturing voor motor 1 (poort 1) met de boven- en onderpijltjes
-        if keyboard.is_pressed('up'):
-            motor_port_data_1 = min(motor_port_data_1 + speed_increment, max_speed)  # Vooruit
-        elif keyboard.is_pressed('down'):
+        # Vraag invoer van de gebruiker
+        user_input = input("Gebruik W/S voor motor 1 (vooruit/achteruit), A/D voor motor 4 (links/rechts), ! om te stoppen: ")
+        
+        if user_input.lower() == 's':
             motor_port_data_1 = max(motor_port_data_1 - speed_increment, -max_speed)  # Achteruit
+        elif user_input.lower() == 'w':
+            motor_port_data_1 = min(motor_port_data_1 + speed_increment, max_speed)  # Vooruit
+        elif user_input.lower() == 'a':
+            motor_port_data_4 = max(motor_port_data_4 - speed_increment_motor_4, -max_speed)  # Draaien naar links
+        elif user_input.lower() == 'd':
+            motor_port_data_4 = min(motor_port_data_4 + speed_increment_motor_4, max_speed)  # Draaien naar rechts
+        elif user_input == '!':
+            logging.info("Beëindiging door invoer van '!'.")
+            break
         else:
-            motor_port_data_1 = 0  # Stop motor 1 wanneer er geen toets is ingedrukt
+            logging.info("Ongeldige invoer, probeer het opnieuw.")
 
-        # Besturing voor motor 4 (poort 4) met de links- en rechtspijltjes
-        if keyboard.is_pressed('right'):
-            motor_port_data_4 = min(motor_port_data_4 + speed_increment, max_speed)  # Vooruit
-        elif keyboard.is_pressed('left'):
-            motor_port_data_4 = max(motor_port_data_4 - speed_increment, -max_speed)  # Achteruit
-        else:
-            motor_port_data_4 = 0  # Stop motor 4 wanneer er geen toets is ingedrukt
+        # Alleen verzenden als de snelheid veranderd is
+        if motor_port_data_1 != prev_motor_port_data_1 or motor_port_data_4 != prev_motor_port_data_4:
+            logging.info(f"Motor 1 snelheid: {motor_port_data_1}, Motor 4 snelheid: {motor_port_data_4}")
+            await send_motor_command(client, motor_port_data_1, motor_port_data_4)
 
-        logging.info(f"Motor 1 snelheid: {motor_port_data_1}, Motor 4 snelheid: {motor_port_data_4}")
-        await send_motor_command(client, motor_port_data_1, motor_port_data_4)
+            # Update de vorige snelheden
+            prev_motor_port_data_1 = motor_port_data_1
+            prev_motor_port_data_4 = motor_port_data_4
 
-        await asyncio.sleep(0.1)  # Controleer de snelheid elke 100 ms
+        await asyncio.sleep(0.001)  # Verlaag de delay tot 1 ms voor snellere controle
 
 async def main():
     logging.info("Laten we beginnen!")
@@ -97,12 +91,8 @@ async def main():
 
     async with BleakClient(device.address) as client:
         logging.info("Verbonden met BuWizz!")
-        motor_task = asyncio.create_task(motor_control(client))
-
-        try:
-            await motor_task
-        except KeyboardInterrupt:
-            logging.info("Beëindiging...")
-            motor_task.cancel()
+        
+        # Start de motorbesturingslus
+        await motor_control(client)
 
 asyncio.run(main())
