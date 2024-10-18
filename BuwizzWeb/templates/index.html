@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuWizz Motor Control</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<body>
+    <h1>BuWizz Motor Control</h1>
+
+    <div>
+        <button id="scan_bluetooth_button">Scan naar Bluetooth-apparaten</button>
+        <br><br>
+        <label for="bluetooth_devices">Selecteer Bluetooth-apparaat:</label>
+        <select id="bluetooth_devices" disabled>
+            <option value="" selected disabled>Selecteer een apparaat</option>
+        </select>
+        <button id="connect_button" disabled>Verbind</button>
+        <button id="disconnect_button" disabled>Disconnect Bluetooth</button>
+    </div>
+
+    <br>
+
+    <div>
+        <label for="motor1">Motor 1 Snelheid:</label>
+        <input type="range" id="motor1" min="-127" max="127" value="0" disabled>
+        <span id="motor1_val">0</span>
+    </div>
+
+    <div>
+        <label for="motor4">Motor 4 Snelheid:</label>
+        <input type="range" id="motor4" min="-127" max="127" value="0" disabled>
+        <span id="motor4_val">0</span>
+    </div>
+
+    <button id="stop_button" disabled>Stop Motoren</button>
+
+    <script>
+        // Functie om de knoppenstatus bij te werken
+        function updateButtonStates(isConnected) {
+            if (isConnected) {
+                // Als verbonden, schakel scan en verbind uit, maak disconnect beschikbaar
+                $('#scan_bluetooth_button').prop('disabled', true);
+                $('#connect_button').prop('disabled', true);
+                $('#disconnect_button').prop('disabled', false);
+                $('#bluetooth_devices').prop('disabled', true); // Deactiveer de lijst met apparaten
+                $('#motor1').prop('disabled', false);
+                $('#motor4').prop('disabled', false);
+                $('#stop_button').prop('disabled', false);
+            } else {
+                // Als niet verbonden, schakel scan en verbind in, maak disconnect uit
+                $('#scan_bluetooth_button').prop('disabled', false);
+                $('#connect_button').prop('disabled', $('#bluetooth_devices option').length <= 1);
+                $('#disconnect_button').prop('disabled', true);
+                $('#bluetooth_devices').prop('disabled', false); // Activeer de lijst met apparaten
+                $('#motor1').prop('disabled', true);
+                $('#motor4').prop('disabled', true);
+                $('#stop_button').prop('disabled', true);
+            }
+        }
+
+        $(document).ready(function () {
+            // Initieel instellen van de knoppenstatus (niet verbonden)
+            updateButtonStates(false);
+
+            // Functie om Bluetooth te scannen
+            $('#scan_bluetooth_button').click(function () {
+                $.get('/scan', function (data) {
+                    const deviceSelect = $('#bluetooth_devices');
+                    deviceSelect.empty(); // Verwijder vorige opties
+                    deviceSelect.append('<option value="" selected disabled>Selecteer een apparaat</option>');
+
+                    // Voeg de gescande apparaten toe aan de lijst
+                    data.devices.forEach(function (device) {
+                        deviceSelect.append('<option value="' + device.address + '">' + device.name + '</option>');
+                    });
+
+                    // Schakel de verbindknop in als apparaten gevonden zijn
+                    if (data.devices.length > 0) {
+                        $('#connect_button').prop('disabled', false);
+                    }
+                });
+            });
+
+            // Functie om te verbinden met een Bluetooth-apparaat
+            $('#connect_button').click(function () {
+                const selectedDevice = $('#bluetooth_devices').val();
+                if (selectedDevice) {
+                    $.post('/connect', { device_address: selectedDevice }, function (response) {
+                        alert(response.message);
+                        if (response.status === 'connected') {
+                            updateButtonStates(true);
+                        }
+                    });
+                }
+            });
+
+            // Functie om de verbinding te verbreken
+            $('#disconnect_button').click(function () {
+                $.post('/disconnect', function (response) {
+                    alert(response.message); // Toon het resultaat van de disconnect-actie
+                    if (response.status === 'disconnected') {
+                        // Na disconnect, knoppenstatus bijwerken
+                        updateButtonStates(false);
+
+                        // Herstel sliders en knoppen naar niet-verbonden staat
+                        $('#motor1').val(0).prop('disabled', true);
+                        $('#motor4').val(0).prop('disabled', true);
+                        $('#motor1_val').text(0);
+                        $('#motor4_val').text(0);
+                        $('#stop_button').prop('disabled', true);
+
+                        // Herstel apparaatlijst en schakel verbindknop uit
+                        $('#bluetooth_devices').empty().append('<option value="" selected disabled>Selecteer een apparaat</option>');
+                        $('#connect_button').prop('disabled', true);
+                    }
+                });
+            });
+
+            // Schuifregelaar voor Motor 1
+            $('#motor1').on('input', function () {
+                const motor1Speed = $(this).val();
+                $('#motor1_val').text(motor1Speed);
+                sendMotorCommand(1, motor1Speed); // Stuur snelheidscommando naar server
+            });
+
+            // Schuifregelaar voor Motor 4
+            $('#motor4').on('input', function () {
+                const motor4Speed = $(this).val();
+                $('#motor4_val').text(motor4Speed);
+                sendMotorCommand(4, motor4Speed); // Stuur snelheidscommando naar server
+            });
+
+            // Functie om motorsnelheden naar de backend te sturen
+            function sendMotorCommand(motor, speed) {
+                $.ajax({
+                    url: '/set_motor_speed',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ motor: motor, speed: speed }),
+                    success: function (response) {
+                        if (response.status !== 'success') {
+                            alert("Fout bij het versturen van motorsnelheid!");
+                        }
+                    },
+                    error: function (error) {
+                        console.error('Fout bij versturen:', error);
+                    }
+                });
+            }
+
+            // Stop motoren
+            $('#stop_button').click(function () {
+                $('#motor1').val(0);
+                $('#motor4').val(0);
+                $('#motor1_val').text(0);
+                $('#motor4_val').text(0);
+                sendMotorCommand(1, 0);
+                sendMotorCommand(4, 0);
+            });
+        });
+    </script>
+</body>
+
+</html>
