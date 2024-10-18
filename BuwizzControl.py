@@ -1,147 +1,108 @@
 import asyncio
 import logging
-import random
-
 from bleak import BleakClient, BleakScanner
-
-"""wuwizz.py
-Attempt at running BuWizz device with python3.
-
-In the end we need to be able to:
-    V - Connect to the device.
-    V - Be able to run some commands and read incoming data. So try to get some
-      data first, then we make an attempt at moving this Buwizz.
-    - Create all commands and make sure they run reliably. We should be able to
-      'input("forward")' for example to send the forward command to the device.
-    - Finally, make this app run in the backend for a web UI. 
-
-Sources:
-    Official API:
-      - https://buwizz.com/BuWizz_3.0_API_3.6_web.pdf
-    Getting started with python Bluetooth:
-      - https://medium.com/@protobioengineering/how-to-talk-to-bluetooth-devices-with-python-part-1-getting-data-30617bb43985
-    bleak readthedocs:
-      - https://bleak.readthedocs.io/en/latest/
-    bleak examples:
-      - https://github.com/hbldh/bleak/tree/master/examples
-
-To-do:
-    - Learn about how communication to bluetooth devices work. If we know this,
-      the rest of the backend is going to be easy.
-      https://novelbits.io/bluetooth-gatt-services-characteristics/
-      https://devzone.nordicsemi.com/guides/short-range-guides/b/bluetooth-low-energy/posts/ble-characteristics-a-beginners-tutorial
-      https://www.oreilly.com/library/view/getting-started-with/9781491900550/ch04.html
-      https://github.com/hbldh/bleak/blob/develop/examples/philips_hue.py
-      https://github.com/neozenith/buwizz-pro3-bluetooth-python/tree/main/src/buwizz_pro3_bluetooth_python
-"""
-
-"""Import asyncio to run this app asynchronious, logging to log and print,
-numpy for converting responses to human readible data, bleak for bluetooth."""
+import sys
+import termios
+import tty
 
 logging.basicConfig(level="INFO")
 
-"""Client Characteristic Configuration Descriptors (CCCD)"""
-APPLICATION = "2901"
-BOOTLOADER = "8000"
-UART1 = "3901"
-UART2 = "3902"
-UART3 = "3903"
-UART4 = "3904"
-
-"""BUWIZZ SERVICE UUID"""
+# BuWizz Bluetooth service UUID
 CHARACTERISTIC_APPLICATION_UUID = "50052901-74fb-4481-88b3-9919b1676e93"
 
+# Globale variabelen voor motorsnelheden
+motor_port_data_1 = 0  # Snelheid voor motor 1 (poort 1)
+motor_port_data_4 = 0  # Snelheid voor motor 4 (poort 4)
+max_speed = 127  # Maximale snelheid voor de motoren
+speed_increment = 5  # Hoeveelheid waarmee de snelheid per stap toeneemt
+
+# Functie om toetsenbordinput asynchroon te lezen op Unix-systemen
+async def read_input():
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            yield ch
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
 async def select_bluetooth_device():
-    """Scan for bluetooth devices and select one"""
+    """Scan voor Bluetooth-apparaten en selecteer er een"""
     while True:
-        logging.info("Scanning for devices...")
+        logging.info("Scannen naar apparaten...")
         devices = await BleakScanner.discover()
         n = 0
         for device in devices:
-            logging.info(f"DEVICE: {n}: {device}")
-            '''if device.address == "D8:36:DC:FD:9C:F0":
-                return device'''
+            logging.info(f"Apparaat {n}: {device}")
             n += 1
         try:
-            selected_device = int(input("Select device number: "))
+            selected_device = int(input("Selecteer apparaatgebruiksnummer: "))
             device = devices[selected_device]
             return device
         except KeyboardInterrupt:
             exit()
         except (IndexError, UnboundLocalError, ValueError):
-            logging.info("Do better")
+            logging.info("Probeer het opnieuw")
 
+def convert_speed_to_byte(speed):
+    """Zet de snelheidswaarde om naar een byte (0-255) voor de motorcontrole"""
+    if speed < 0:
+        # Voor negatieve snelheden: voeg 256 toe (bijv. -5 wordt 251)
+        return 256 + speed
+    return speed
 
-async def add_cccd(uuid, cccd):
-    if len(cccd) != 4:
-        logging.info("Come on, man!")
-        exit()
-    return uuid[:4] + cccd + uuid[8:]
+async def send_motor_command(client, speed_1, speed_4):
+    """Verstuur motorsnelheidscommando naar BuWizz"""
+    # Converteer de snelheidswaarden naar bytes (0-255)
+    speed_1_byte = convert_speed_to_byte(speed_1)
+    speed_4_byte = convert_speed_to_byte(speed_4)
 
+    # Creëer de bytearray voor de motoren
+    b_array = bytearray([0x30, speed_1_byte, 0x00, 0x00, speed_4_byte, 0x00, 0x00, 0x00, 0x00])
 
-async def convert_rgb(rgb):
-    scale = 0xFF
-    adjusted = [max(1, chan) for chan in rgb]
-    total = sum(adjusted)
-    adjusted = [int(round(chan / total * scale)) for chan in adjusted]
+    logging.info(f"Sending speeds - Motor 1: {speed_1} ({speed_1_byte}), Motor 4: {speed_4} ({speed_4_byte})")
+    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
 
-    return bytearray([0x36, adjusted[0], adjusted[1], adjusted[2],
-                      adjusted[3], adjusted[4], adjusted[5],
-                      adjusted[6], adjusted[7], adjusted[8],
-                      adjusted[9], adjusted[10], adjusted[11]])
+async def motor_control(client):
+    global motor_port_data_1, motor_port_data_4
+    logging.info("Start de motorbesturingslus...")
 
+    while True:
+        # Besturing voor motor 1 (poort 1) met de boven- en onderpijltjes
+        if keyboard.is_pressed('up'):
+            motor_port_data_1 = min(motor_port_data_1 + speed_increment, max_speed)  # Vooruit
+        elif keyboard.is_pressed('down'):
+            motor_port_data_1 = max(motor_port_data_1 - speed_increment, -max_speed)  # Achteruit
+        else:
+            motor_port_data_1 = 0  # Stop motor 1 wanneer er geen toets is ingedrukt
 
-async def taste_the_rainbow():
-    color = await convert_rgb([random.randint(0, 256), random.randint(0, 256), random.randint(0, 256),
-                         random.randint(0, 256), random.randint(0, 256), random.randint(0, 256),
-                         random.randint(0, 256), random.randint(0, 256), random.randint(0, 256),
-                         random.randint(0, 256), random.randint(0, 256), random.randint(0, 256)])
-    return color
+        # Besturing voor motor 4 (poort 4) met de links- en rechtspijltjes
+        if keyboard.is_pressed('right'):
+            motor_port_data_4 = min(motor_port_data_4 + speed_increment, max_speed)  # Vooruit
+        elif keyboard.is_pressed('left'):
+            motor_port_data_4 = max(motor_port_data_4 - speed_increment, -max_speed)  # Achteruit
+        else:
+            motor_port_data_4 = 0  # Stop motor 4 wanneer er geen toets is ingedrukt
 
+        logging.info(f"Motor 1 snelheid: {motor_port_data_1}, Motor 4 snelheid: {motor_port_data_4}")
+        await send_motor_command(client, motor_port_data_1, motor_port_data_4)
+
+        await asyncio.sleep(0.1)  # Controleer de snelheid elke 100 ms
 
 async def main():
-    """For now we will make it all work in the CLI. later on we should be able
-    to do everything via a GUI"""
-    logging.info("Let's do this!")
-    """Select a bluetooth device"""
+    logging.info("Laten we beginnen!")
     device = await select_bluetooth_device()
 
-    """Connect to the BuWizz device and keep connection persistant... Check bleak examples for better presistancy."""
     async with BleakClient(device.address) as client:
-        for service in client.services:
-            logging.info(service.uuid)
-            for char in service.characteristics:
-                logging.info(char)
-        while True:
-            try:
-                logging.info("Here we go!")
-                """Attempts at trying to decipher bluetooth"""
+        logging.info("Verbonden met BuWizz!")
+        motor_task = asyncio.create_task(motor_control(client))
 
-                """Attempt at setting LED status randomly"""
-                for i in range(1):
-                    """Random colors"""
-                    b_array = await taste_the_rainbow()
-                    logging.info(b_array)
-
-                    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
-                    await asyncio.sleep(.5)
-
-                """Attempt at making a motor move"""
-                motor_port_data_1 = 50
-                motor_port_data_4 = 10
-                # motor_port_data_1 is a signed 8-bit value. Ranges go from -127 to 128.
-                # speak 127 converts to -127 and 129 converts to 128 as it goes
-                # from 0 to 256 instead of from -127 to 128.
-                for i in range(5):
-                    motor_port_data_1 += 1
-                    # logging.info(f"LOL: {motor_port_data_1}: {motor_port_data_1.to_bytes(1, 'big')}")
-                    b_array = bytearray([0x30, motor_port_data_1, 0x00,  0x00, motor_port_data_4, 0x00, 0x00, 0, 0])  # have only check with the first motor data entry
-                    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
-                    await asyncio.sleep(3)
-                exit()
-            except KeyboardInterrupt:
-                exit()
-
+        try:
+            await motor_task
+        except KeyboardInterrupt:
+            logging.info("Beëindiging...")
+            motor_task.cancel()
 
 asyncio.run(main())
