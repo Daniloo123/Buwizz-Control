@@ -26,13 +26,13 @@
 
     <div>
         <label for="motor1">Motor 1 Snelheid:</label>
-        <input type="range" id="motor1" min="-127" max="127" value="0" disabled>
+        <input type="range" id="motor1" min="-100" max="100" value="0" disabled>
         <span id="motor1_val">0</span>
     </div>
 
     <div>
-        <label for="motor4">Motor 4 Snelheid:</label>
-        <input type="range" id="motor4" min="-127" max="127" value="0" disabled>
+        <label for="motor4">Motor 4 Stuurhoek (Servo):</label>
+        <input type="range" id="motor4" min="-45" max="45" value="0" disabled>
         <span id="motor4_val">0</span>
     </div>
 
@@ -120,30 +120,43 @@
                 });
             });
 
-            // Schuifregelaar voor Motor 1
+            // Schuifregelaar voor Motor 1 (Snelheid voor rijden)
+            // Schuifregelaar voor Motor 1 (Snelheid voor rijden)
             $('#motor1').on('input', function () {
                 const motor1Speed = $(this).val();
                 $('#motor1_val').text(motor1Speed);
-                sendMotorCommand(1, motor1Speed); // Stuur snelheidscommando naar server
+                sendMotorCommand(motor1Speed, null); // Stuur snelheidscommando naar server
             });
 
-            // Schuifregelaar voor Motor 4
+            // Schuifregelaar voor Motor 4 (Stuurhoek voor sturen)
             $('#motor4').on('input', function () {
-                const motor4Speed = $(this).val();
-                $('#motor4_val').text(motor4Speed);
-                sendMotorCommand(4, motor4Speed); // Stuur snelheidscommando naar server
+                const motor4Angle = $(this).val();
+                $('#motor4_val').text(motor4Angle);
+                sendMotorCommand(null, motor4Angle); // Stuur stuurhoek naar server
             });
 
+
+            // Functie om motor- en stuurcommando's naar de backend te sturen
             // Functie om motorsnelheden naar de backend te sturen
-            function sendMotorCommand(motor, speed) {
+            function sendMotorCommand(speed, steering) {
+                // Haal de huidige waarden op voor zowel snelheid als stuurhoek
+                const currentSpeed = $('#motor1').val();
+                const currentSteering = $('#motor4').val();
+
+                // Controleer of we een nieuwe waarde voor snelheid of stuurhoek hebben
+                const data = {};
+                data['speed'] = speed !== null ? speed : currentSpeed;  // Gebruik nieuwe of huidige snelheid
+                data['steering'] = steering !== null ? steering : currentSteering;  // Gebruik nieuwe of huidige stuurhoek
+
+                // Verstuur de gecombineerde waarden naar de backend
                 $.ajax({
                     url: '/set_motor_speed',
                     type: 'POST',
                     contentType: 'application/json',
-                    data: JSON.stringify({ motor: motor, speed: speed }),
+                    data: JSON.stringify(data),
                     success: function (response) {
                         if (response.status !== 'success') {
-                            alert("Fout bij het versturen van motorsnelheid!");
+                            alert("Fout bij het versturen van motor- of stuurgegevens!");
                         }
                     },
                     error: function (error) {
@@ -152,14 +165,14 @@
                 });
             }
 
-            // Stop motoren
+
+            // Stop motoren en stuurservo
             $('#stop_button').click(function () {
                 $('#motor1').val(0);
                 $('#motor4').val(0);
                 $('#motor1_val').text(0);
                 $('#motor4_val').text(0);
-                sendMotorCommand(1, 0);
-                sendMotorCommand(4, 0);
+                sendMotorCommand(0, 0); // Stuur zowel snelheid als stuurhoek naar 0
             });
         });
     </script>
