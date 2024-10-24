@@ -4,176 +4,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BuWizz Motor Control</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>BuWizz Controller</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            width: 80%;
+            margin: auto;
+            padding-top: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .device-list {
+            margin: 20px 0;
+        }
+
+        .device-list input {
+            margin-right: 10px;
+        }
+
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .control-panel button {
+            width: 80px;
+            height: 80px;
+            margin: 10px;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: #000;
+            color: #fff;
+            border: none;
+        }
+
+        .control-panel button.stop {
+            background-color: red;
+            color: white;
+            font-size: 18px;
+        }
+
+        .status-panel {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .battery-level,
+        .status {
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .dark-mode-toggle {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        .dark-mode-toggle label {
+            font-size: 16px;
+        }
+
+        .dark-mode {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .dark-mode input {
+            margin-left: 10px;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>BuWizz Motor Control</h1>
+    <div class="container">
+        <h1>BuWizz Controller</h1>
 
-    <div>
-        <button id="scan_bluetooth_button">Scan naar Bluetooth-apparaten</button>
-        <br><br>
-        <label for="bluetooth_devices">Selecteer Bluetooth-apparaat:</label>
-        <select id="bluetooth_devices" disabled>
-            <option value="" selected disabled>Selecteer een apparaat</option>
-        </select>
-        <button id="connect_button" disabled>Verbind</button>
-        <button id="disconnect_button" disabled>Disconnect Bluetooth</button>
+        <!-- Dark Mode Toggle -->
+        <div class="dark-mode-toggle">
+            <label for="dark-mode-toggle">Dark Mode:</label>
+            <input type="checkbox" id="dark-mode-toggle">
+        </div>
+
+        <!-- Available Devices -->
+        <div class="device-list">
+            <h2>Available BuWizz Devices</h2>
+            <div>
+                <span>BuWizz Device #1</span>
+                <button>Connect</button>
+            </div>
+            <div>
+                <span>BuWizz Device #2</span>
+                <button>Connect</button>
+            </div>
+            <button id="scan-button">Scan</button>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <button id="left">&larr;</button>
+            <div>
+                <button id="up">&uarr;</button><br>
+                <button id="stop" class="stop">Stop</button><br>
+                <button id="down">&darr;</button>
+            </div>
+            <button id="right">&rarr;</button>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <div class="battery-level">Battery Level: 60%</div>
+            <div class="status">Status: <span id="connection-status">Connected</span></div>
+            <div>
+                <button id="disconnect-button">Disconnect</button>
+            </div>
+            <div>
+                <span>Port 1: 0mA</span><br>
+                <span>Port 2: 0mA</span><br>
+                <span>Port 3: 0mA</span><br>
+                <span>Port 4: 0mA</span>
+            </div>
+        </div>
     </div>
-
-    <br>
-
-    <div>
-        <label for="motor1">Motor 1 Snelheid:</label>
-        <input type="range" id="motor1" min="-100" max="100" value="0" disabled>
-        <span id="motor1_val">0</span>
-    </div>
-
-    <div>
-        <label for="motor4">Motor 4 Stuurhoek (Servo):</label>
-        <input type="range" id="motor4" min="-45" max="45" value="0" disabled>
-        <span id="motor4_val">0</span>
-    </div>
-
-    <button id="stop_button" disabled>Stop Motoren</button>
 
     <script>
-        // Functie om de knoppenstatus bij te werken
-        function updateButtonStates(isConnected) {
-            if (isConnected) {
-                // Als verbonden, schakel scan en verbind uit, maak disconnect beschikbaar
-                $('#scan_bluetooth_button').prop('disabled', true);
-                $('#connect_button').prop('disabled', true);
-                $('#disconnect_button').prop('disabled', false);
-                $('#bluetooth_devices').prop('disabled', true); // Deactiveer de lijst met apparaten
-                $('#motor1').prop('disabled', false);
-                $('#motor4').prop('disabled', false);
-                $('#stop_button').prop('disabled', false);
+        // Dark mode toggle
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        darkModeToggle.addEventListener('change', function () {
+            if (darkModeToggle.checked) {
+                document.body.style.backgroundColor = '#333';
+                document.body.style.color = '#fff';
             } else {
-                // Als niet verbonden, schakel scan en verbind in, maak disconnect uit
-                $('#scan_bluetooth_button').prop('disabled', false);
-                $('#connect_button').prop('disabled', $('#bluetooth_devices option').length <= 1);
-                $('#disconnect_button').prop('disabled', true);
-                $('#bluetooth_devices').prop('disabled', false); // Activeer de lijst met apparaten
-                $('#motor1').prop('disabled', true);
-                $('#motor4').prop('disabled', true);
-                $('#stop_button').prop('disabled', true);
+                document.body.style.backgroundColor = '#f4f4f4';
+                document.body.style.color = '#000';
             }
-        }
+        });
 
-        $(document).ready(function () {
-            // Initieel instellen van de knoppenstatus (niet verbonden)
-            updateButtonStates(false);
+        // Event listeners for device control buttons
+        document.getElementById('left').addEventListener('click', function () {
+            console.log('Move Left');
+        });
 
-            // Functie om Bluetooth te scannen
-            $('#scan_bluetooth_button').click(function () {
-                $.get('/scan', function (data) {
-                    const deviceSelect = $('#bluetooth_devices');
-                    deviceSelect.empty(); // Verwijder vorige opties
-                    deviceSelect.append('<option value="" selected disabled>Selecteer een apparaat</option>');
+        document.getElementById('right').addEventListener('click', function () {
+            console.log('Move Right');
+        });
 
-                    // Voeg de gescande apparaten toe aan de lijst
-                    data.devices.forEach(function (device) {
-                        deviceSelect.append('<option value="' + device.address + '">' + device.name + '</option>');
-                    });
+        document.getElementById('up').addEventListener('click', function () {
+            console.log('Move Up');
+        });
 
-                    // Schakel de verbindknop in als apparaten gevonden zijn
-                    if (data.devices.length > 0) {
-                        $('#connect_button').prop('disabled', false);
-                    }
-                });
-            });
+        document.getElementById('down').addEventListener('click', function () {
+            console.log('Move Down');
+        });
 
-            // Functie om te verbinden met een Bluetooth-apparaat
-            $('#connect_button').click(function () {
-                const selectedDevice = $('#bluetooth_devices').val();
-                if (selectedDevice) {
-                    $.post('/connect', { device_address: selectedDevice }, function (response) {
-                        alert(response.message);
-                        if (response.status === 'connected') {
-                            updateButtonStates(true);
-                        }
-                    });
-                }
-            });
+        document.getElementById('stop').addEventListener('click', function () {
+            console.log('Stop');
+        });
 
-            // Functie om de verbinding te verbreken
-            $('#disconnect_button').click(function () {
-                $.post('/disconnect', function (response) {
-                    alert(response.message); // Toon het resultaat van de disconnect-actie
-                    if (response.status === 'disconnected') {
-                        // Na disconnect, knoppenstatus bijwerken
-                        updateButtonStates(false);
+        document.getElementById('scan-button').addEventListener('click', function () {
+            console.log('Scanning for devices...');
+        });
 
-                        // Herstel sliders en knoppen naar niet-verbonden staat
-                        $('#motor1').val(0).prop('disabled', true);
-                        $('#motor4').val(0).prop('disabled', true);
-                        $('#motor1_val').text(0);
-                        $('#motor4_val').text(0);
-                        $('#stop_button').prop('disabled', true);
-
-                        // Herstel apparaatlijst en schakel verbindknop uit
-                        $('#bluetooth_devices').empty().append('<option value="" selected disabled>Selecteer een apparaat</option>');
-                        $('#connect_button').prop('disabled', true);
-                    }
-                });
-            });
-
-            // Schuifregelaar voor Motor 1 (Snelheid voor rijden)
-            // Schuifregelaar voor Motor 1 (Snelheid voor rijden)
-            $('#motor1').on('input', function () {
-                const motor1Speed = $(this).val();
-                $('#motor1_val').text(motor1Speed);
-                sendMotorCommand(motor1Speed, null); // Stuur snelheidscommando naar server
-            });
-
-            // Schuifregelaar voor Motor 4 (Stuurhoek voor sturen)
-            $('#motor4').on('input', function () {
-                const motor4Angle = $(this).val();
-                $('#motor4_val').text(motor4Angle);
-                sendMotorCommand(null, motor4Angle); // Stuur stuurhoek naar server
-            });
-
-
-            // Functie om motor- en stuurcommando's naar de backend te sturen
-            // Functie om motorsnelheden naar de backend te sturen
-            function sendMotorCommand(speed, steering) {
-                // Haal de huidige waarden op voor zowel snelheid als stuurhoek
-                const currentSpeed = $('#motor1').val();
-                const currentSteering = $('#motor4').val();
-
-                // Controleer of we een nieuwe waarde voor snelheid of stuurhoek hebben
-                const data = {};
-                data['speed'] = speed !== null ? speed : currentSpeed;  // Gebruik nieuwe of huidige snelheid
-                data['steering'] = steering !== null ? steering : currentSteering;  // Gebruik nieuwe of huidige stuurhoek
-
-                // Verstuur de gecombineerde waarden naar de backend
-                $.ajax({
-                    url: '/set_motor_speed',
-                    type: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(data),
-                    success: function (response) {
-                        if (response.status !== 'success') {
-                            alert("Fout bij het versturen van motor- of stuurgegevens!");
-                        }
-                    },
-                    error: function (error) {
-                        console.error('Fout bij versturen:', error);
-                    }
-                });
-            }
-
-
-            // Stop motoren en stuurservo
-            $('#stop_button').click(function () {
-                $('#motor1').val(0);
-                $('#motor4').val(0);
-                $('#motor1_val').text(0);
-                $('#motor4_val').text(0);
-                sendMotorCommand(0, 0); // Stuur zowel snelheid als stuurhoek naar 0
-            });
+        document.getElementById('disconnect-button').addEventListener('click', function () {
+            console.log('Disconnecting...');
         });
     </script>
 </body>
