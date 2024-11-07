@@ -2,115 +2,159 @@ import asyncio
 import logging
 from bleak import BleakClient, BleakScanner
 import keyboard  # Zorg ervoor dat je deze module hebt geïnstalleerd met `pip install keyboard`
+import sys
 
 logging.basicConfig(level="INFO")
 
 CHARACTERISTIC_APPLICATION_UUID = "50052901-74fb-4481-88b3-9919b1676e93"
 
-async def select_bluetooth_device():
-    devices = await BleakScanner.discover()
-    for n, device in enumerate(devices):
-        logging.info(f"[{n}] {device}")
-    index = int(input("Selecteer apparaatindex: "))
-    return devices[index]
+# Globale variabelen voor motorsnelheden en posities
+motor_port_data_1 = 0  # Snelheid voor motor 1 (rijden op poort 1)
+prev_motor_port_data_1 = None  # Voor controle op verandering
+max_speed = 127  # Maximale snelheid voor de motoren
+speed_increment = 5  # Hoeveelheid waarmee de snelheid per stap toeneemt voor motor 1
 
-async def send_speed_command(client, speed):
-    """Stuur een snelheidscommando naar de motor op poort 4."""
-    command = bytearray([0x30] + [0x00]*6 + [0x00]*2)
-    command[4] = speed & 0xFF  # Snelheid voor poort 4
-    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, command, response=False)
-    logging.debug(f"Verstuur snelheid: {speed}")
+# Variabelen voor de stuurmotor (poort 4)
+target_position_4 = 25  # Middenpositie (20 graden)
+current_position_4 = 25  # Begin in de middenpositie voor sturen
+max_turn = 50  # Maximale draaihoek
+min_turn = 0  # Minimale draaihoek
+step_turn = 5  # Draaihoek per toetsdruk
+speed_factor_4 = 5  # Factor voor stuurresponsiviteit
+
+async def select_bluetooth_device():
+    """Scan voor Bluetooth-apparaten en selecteer er een."""
+    while True:
+        logging.info("Scannen naar apparaten...")
+        devices = await BleakScanner.discover()
+        n = 0
+        for device in devices:
+            logging.info(f"[{n}] {device}")
+            n += 1
+        try:
+            selected_device = int(input("Selecteer apparaatgebruiksnummer: "))
+            device = devices[selected_device]
+            return device
+        except KeyboardInterrupt:
+            exit()
+        except (IndexError, UnboundLocalError, ValueError):
+            logging.info("Probeer het opnieuw")
+
+async def send_motor_command(client, speed_1, speed_4):
+    """Verstuur snelheidscommando's naar poort 1 en poort 4."""
+    
+    # Zet negatieve snelheden om in waardes tussen 128 en 255
+    def transform_speed(speed):
+        return speed if speed >= 0 else 256 + speed
+
+    # Transformatie van snelheden
+    transformed_speed_1 = transform_speed(speed_1)
+    transformed_speed_4 = transform_speed(speed_4)
+
+    # Maak de bytearray met de aangepaste snelheden
+    b_array = bytearray([0x30, transformed_speed_1, 0x00, 0x00, transformed_speed_4, 0x00, 0x00, 0x00, 0x00])
+    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
+    logging.debug(f"Verstuur snelheid poort 1: {speed_1}, poort 4: {speed_4}")
+
+async def control_drive_motor(client):
+    """Controleer de rijsnelheid op poort 1 op basis van pijltjestoetsen."""
+    global motor_port_data_1, prev_motor_port_data_1
+
+    while True:
+        # Houd bij of de toets is ingedrukt
+        key_pressed = False
+
+        # Pas snelheid aan op basis van 'up' en 'down' toetsen
+        if keyboard.is_pressed('down'):
+            motor_port_data_1 = min(motor_port_data_1 + speed_increment, max_speed)
+            key_pressed = True
+        elif keyboard.is_pressed('up'):
+            motor_port_data_1 = max(motor_port_data_1 - speed_increment, -max_speed)
+            key_pressed = True
+        else:
+            motor_port_data_1 = 0  # Stop motor 1 wanneer er geen toets is ingedrukt
+
+        # Stuur de snelheid opnieuw als deze veranderd is of als de toets nog steeds is ingedrukt
+        if motor_port_data_1 != prev_motor_port_data_1 or key_pressed:
+            await send_motor_command(client, motor_port_data_1, 0)  # Poort 4 snelheid op 0 houden
+            prev_motor_port_data_1 = motor_port_data_1
+
+        await asyncio.sleep(0.01)  # Pauze voor responsiviteit
 
 async def auto_calibrate_motor(client):
-    """Automatische kalibratie: bepaal linker- en rechterlimieten en bereken midden."""
+    """Kalibreer de stuurmotor (poort 4) automatisch om linker- en rechterlimieten te vinden."""
     left_limit = None
     right_limit = None
     current_position = 0
-    calibration_speed = 80  # Gematigde snelheid voor limietdetectie
+    calibration_speed = 80
 
-    # Stap 1: Beweeg naar de linkerlimiet
+    # Stap 1: Linkerlimiet detecteren
     logging.info("Beweeg langzaam naar linkerlimiet.")
     while True:
-        await send_speed_command(client, -calibration_speed)  # Beweeg naar links met gematigde snelheid
+        await send_motor_command(client, 0, -calibration_speed)
         await asyncio.sleep(0.1)
-
-        # Simuleer detectie van linkerlimiet (bijv. door toename in weerstand)
-        if current_position <= -40:  # Stel -40 in als fictieve linkerlimiet
+        if current_position <= -50:
             left_limit = current_position
-            await send_speed_command(client, 0)  # Stop de motor
+            await send_motor_command(client, 0, 0)
             logging.info(f"Linkerlimiet gedetecteerd op {left_limit} graden.")
             break
-        current_position -= 1  # Simuleer positie-update naar links
+        current_position -= 1  # Simuleer positie-update
 
-    # Stap 2: Beweeg naar de rechterlimiet
+    # Stap 2: Rechterlimiet detecteren
     logging.info("Beweeg langzaam naar rechterlimiet.")
-    current_position = 0  # Reset fictieve positie voor de simulatie
+    current_position = 0  # Reset voor rechterlimiet
     while True:
-        await send_speed_command(client, calibration_speed)  # Beweeg naar rechts met gematigde snelheid
+        await send_motor_command(client, 0, calibration_speed)
         await asyncio.sleep(0.1)
-
-        # Simuleer detectie van rechterlimiet (bijv. door toename in weerstand)
-        if current_position >= 40:  # Stel 40 in als fictieve rechterlimiet
+        if current_position >= 50:
             right_limit = current_position
-            await send_speed_command(client, 0)  # Stop de motor
+            await send_motor_command(client, 0, 0)
             logging.info(f"Rechterlimiet gedetecteerd op {right_limit} graden.")
             break
-        current_position += 1  # Simuleer positie-update naar rechts
+        current_position += 1  # Simuleer positie-update
 
-    # Stap 3: Bereken het midden en fijne afstemming
+    # Middenpositie berekenen en afstellen
     if left_limit is not None and right_limit is not None:
         rough_center = (left_limit + right_limit) // 2
         logging.info(f"Initieel midden berekend op {rough_center} graden.")
-
-        # Beweeg naar het berekende midden
         await fine_tune_to_center(client, rough_center, current_position)
 
 async def fine_tune_to_center(client, center_position, current_position):
-    """Beweeg de motor langzaam naar het midden voor nauwkeurige afstemming."""
-    logging.info("Start fijne afstemming voor middenpositie.")
+    """Beweeg de stuurmotor naar het midden."""
     while abs(center_position - current_position) > 1:
-        # Bereken de snelheid en richting naar het midden
         speed = 50 if center_position > current_position else -51
-        await send_speed_command(client, speed)
-        current_position += speed * 0.05  # Simuleer de positieverandering
+        await send_motor_command(client, 0, speed)
+        current_position += speed * 0.05
         await asyncio.sleep(0.1)
 
-    # Stop de motor bij het bereiken van het midden
-    await send_speed_command(client, 0)
-    logging.info("Kalibratie voltooid: Motor staat nauwkeurig in het midden.")
+    await send_motor_command(client, 0, 0)
+    logging.info("Kalibratie voltooid: Motor staat in het midden.")
 
-async def pseudo_servo_control(client):
-    """Controleer de motorpositie als pseudo-servo met pijltjestoetsen."""
-    target_position = 20  # Middenpositie (20 graden)
-    max_turn = 40  # Maximale draaihoek in graden
-    min_turn = 0   # Minimale draaihoek in graden
-    step = 5       # Hoeveel graden per toetsdruk
-    current_position = 20  # Begin in de middenpositie
-    speed_factor = 5       # Verhoogde factor voor snellere respons
+async def control_steering_motor(client):
+    """Regelt de stuurpositie van poort 4 (met grenzen op links en rechts) op basis van pijltjestoetsen."""
+    global current_position_4, target_position_4
 
     while True:
-        # Pas doelpositie aan op basis van pijltjestoetsen
-        if keyboard.is_pressed('left'):
-            target_position = max(target_position - step, min_turn)
-            logging.debug(f"Linkerpijl ingedrukt. Nieuwe doelpositie: {target_position}")
-        elif keyboard.is_pressed('right'):
-            target_position = min(target_position + step, max_turn)
-            logging.debug(f"Rechterpijl ingedrukt. Nieuwe doelpositie: {target_position}")
+        # Links/rechts pijltjestoetsen aanpassen binnen de limieten
+        if keyboard.is_pressed('right'):
+            target_position_4 = max(target_position_4 - step_turn, min_turn)
+        elif keyboard.is_pressed('left'):
+            target_position_4 = min(target_position_4 + step_turn, max_turn)
 
-        # Bereken snelheid op basis van afstand tot de doelpositie
-        distance = target_position - current_position
-        speed = int(max(min(distance * speed_factor, 127), -127))  # Verhoogde snelheidslimiet [-127, 127]
+        # Snelheid berekenen op basis van afstand tot doelpositie
+        distance = target_position_4 - current_position_4
+        speed_4 = int(max(min(distance * speed_factor_4, 127), -127))
 
-        # Verstuur snelheidscommando en simuleer positie-update
-        await send_speed_command(client, speed)
-        current_position += speed * 0.05  # Snellere update voor current_position
+        # Verzend het stuurcommando en update de huidige positie
+        await send_motor_command(client, 0, speed_4)
+        current_position_4 += speed_4 * 0.05
 
-        # Stop de motor wanneer de doelpositie is bereikt
-        if abs(distance) < step:
-            await send_speed_command(client, 0)
-            current_position = target_position  # Update huidige positie naar doelpositie
+        # Stop de motor wanneer het doel is bereikt
+        if abs(distance) < step_turn:
+            await send_motor_command(client, 0, 0)
+            current_position_4 = target_position_4
 
-        await asyncio.sleep(0.02)  # Kortere pauze voor hogere responsiviteit
+        await asyncio.sleep(0.02)  # Pauze voor hoge responsiviteit
 
 async def main():
     device = await select_bluetooth_device()
@@ -118,10 +162,12 @@ async def main():
     async with BleakClient(device.address) as client:
         logging.info("Verbonden met BuWizz.")
         
-        # Voer automatische kalibratie uit met langzamere limietdetectie
+        # Start de kalibratie en besturingstaken
         await auto_calibrate_motor(client)
-        
-        # Start de real-time besturing met pijltjestoetsen
-        await pseudo_servo_control(client)
+        drive_task = asyncio.create_task(control_drive_motor(client))
+        steering_task = asyncio.create_task(control_steering_motor(client))
+
+        await drive_task
+        await steering_task
 
 asyncio.run(main())
