@@ -26,7 +26,7 @@ async def auto_calibrate_motor(client):
     left_limit = None
     right_limit = None
     current_position = 0
-    calibration_speed = 50  # Gematigde snelheid voor limietdetectie
+    calibration_speed = 80  # Gematigde snelheid voor limietdetectie
 
     # Stap 1: Beweeg naar de linkerlimiet
     logging.info("Beweeg langzaam naar linkerlimiet.")
@@ -70,7 +70,7 @@ async def fine_tune_to_center(client, center_position, current_position):
     logging.info("Start fijne afstemming voor middenpositie.")
     while abs(center_position - current_position) > 1:
         # Bereken de snelheid en richting naar het midden
-        speed = 42 if center_position > current_position else -42
+        speed = 50 if center_position > current_position else -51
         await send_speed_command(client, speed)
         current_position += speed * 0.05  # Simuleer de positieverandering
         await asyncio.sleep(0.1)
