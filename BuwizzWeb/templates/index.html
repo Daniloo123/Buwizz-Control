@@ -5,249 +5,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BuWizz Controller</title>
-    <style>
-        /* Algemene stijlen */
-        body {
-            font-family: 'Roboto', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            color: #333;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        .container {
-            width: 90%;
-            max-width: 1000px;
-            margin: auto;
-            padding-top: 20px;
-        }
-
-        h1 {
-            text-align: center;
-            font-size: 24px;
-            margin-bottom: 40px;
-        }
-
-        /* Dark mode */
-        .dark-mode-toggle {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 20px;
-        }
-
-        .dark-mode-toggle label {
-            font-size: 16px;
-            margin-right: 10px;
-        }
-
-        /* Available Devices */
-        .device-list {
-            margin-bottom: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .device-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            background-color: #fff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .device-item button {
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .device-item button:hover {
-            background-color: #0056b3;
-        }
-
-        #scan-button {
-            display: block;
-            margin: 10px auto;
-            background-color: #28a745;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        #scan-button:hover {
-            background-color: #218838;
-        }
-
-        /* Control Panel */
-        .control-panel {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            justify-items: center;
-            align-items: center;
-            margin: 40px 0;
-        }
-
-        .control-panel button {
-            width: 80px;
-            height: 80px;
-            font-size: 24px;
-            background-color: #000;
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        .control-panel button:active {
-            transform: scale(0.95);
-        }
-
-        .control-panel .stop {
-            background-color: #ff0000;
-            color: white;
-            font-size: 18px;
-        }
-
-        /* Status Panel */
-        .status-panel {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            align-items: center;
-            text-align: center;
-        }
-
-        .battery-level,
-        .status {
-            font-size: 16px;
-        }
-
-        #disconnect-button {
-            background-color: #dc3545;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        #disconnect-button:hover {
-            background-color: #c82333;
-        }
-
-        /* Dark mode styling */
-        .dark-mode-active {
-            background-color: #333;
-            color: #fff;
-        }
-
-        .dark-mode-active .device-item {
-            background-color: #444;
-            border-color: #666;
-        }
-
-        .dark-mode-active .control-panel button {
-            background-color: #666;
-        }
-
-        .dark-mode-active .control-panel .stop {
-            background-color: #ff4d4d;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/script.js" defer></script>
 </head>
 
 <body>
     <div class="container">
-        <h1>BuWizz Controller</h1>
+        <header>
+            <h1>BuWizz Controller</h1>
+            <label class="dark-mode-toggle">
+                Dark Mode
+                <input type="checkbox" id="darkModeSwitch">
+                <span class="slider"></span>
+            </label>
+        </header>
 
-        <!-- Dark Mode Toggle -->
-        <div class="dark-mode-toggle">
-            <label for="dark-mode-toggle">Dark Mode</label>
-            <input type="checkbox" id="dark-mode-toggle">
-        </div>
+        <!-- Apparaten scan- en selectiegedeelte -->
+        <section class="devices-section">
+            <h3>Available BuWizz Devices</h3>
+            <button class="scan-btn" onclick="scanDevices()">Scan</button>
+            <ul id="devices" class="device-list"></ul>
+            <button id="connect-btn" onclick="connectSelectedDevice()" disabled>Connect</button>
+        </section>
 
-        <!-- Available Devices -->
-        <div class="device-list">
-            <div class="device-item">
-                <span>BuWizz Device #1</span>
-                <button>Connect</button>
+        <!-- Besturingsgedeelte voor apparaat -->
+        <section class="controls-section">
+            <h3>Device Control</h3>
+            <div class="controls-layout">
+                <!-- Linker pijl knop -->
+                <button onclick="sendCommand('left')" class="control">←</button>
+
+                <!-- Midden: verticale knoppen -->
+                <div class="vertical-controls">
+                    <button onclick="sendCommand('up')" class="vertical-controls-btn">↑</button>
+                    <button onclick="sendCommand('down')" class="vertical-controls-btn">↓</button>
+                </div>
+
+                <!-- Rechter pijl knop -->
+                <button onclick="sendCommand('right')" class="control">→</button>
             </div>
-            <div class="device-item">
-                <span>BuWizz Device #2</span>
-                <button>Connect</button>
-            </div>
-            <button id="scan-button">Scan for Devices</button>
-        </div>
+            <button onclick="sendCommand('stop')" class="stop-btn">Stop</button>
+        </section>
 
-        <!-- Control Panel -->
-        <div class="control-panel">
-            <button id="left">&larr;</button>
-            <div>
-                <button id="up">&uarr;</button><br>
-                <button id="stop" class="stop">Stop</button><br>
-                <button id="down">&darr;</button>
-            </div>
-            <button id="right">&rarr;</button>
-        </div>
 
-        <!-- Status Panel -->
-        <div class="status-panel">
-            <div class="battery-level">Battery Level: 60%</div>
-            <div class="status">Status: <span id="connection-status">Connected</span></div>
-            <button id="disconnect-button">Disconnect</button>
-        </div>
+        <!-- Batterij- en statusgedeelte -->
+        <section class="status-section">
+            <div class="info">
+                <p><b>Battery Level: <span id="battery-level">100%</span></b></p>
+                <p><b>Poort 1: <span id="volt">mAh</span></b></p>
+                <p><b>Poort 2: <span id="volt">mAh</span></b></p>
+                <p><b>Poort 3: <span id="volt">mAh</span></b></p>
+                <p><b>Poort 4: <span id="volt">mAh</span></b></p>
+            </div>
+            <div class="status">
+                <div>
+                    <p>Status: <span id="status-indicator" class="disconnected">Disconnected</span></p>
+                </div>
+                <button onclick="disconnectDevice()" class="disconnect-btn">Disconnect</button>
+            </div>
+        </section>
+
+
     </div>
-
-    <script>
-        // Dark Mode Toggle
-        const darkModeToggle = document.getElementById('dark-mode-toggle');
-        darkModeToggle.addEventListener('change', function () {
-            document.body.classList.toggle('dark-mode-active', darkModeToggle.checked);
-        });
-
-        // Button Event Handlers
-        document.getElementById('left').addEventListener('click', function () {
-            console.log('Move Left');
-        });
-
-        document.getElementById('right').addEventListener('click', function () {
-            console.log('Move Right');
-        });
-
-        document.getElementById('up').addEventListener('click', function () {
-            console.log('Move Up');
-        });
-
-        document.getElementById('down').addEventListener('click', function () {
-            console.log('Move Down');
-        });
-
-        document.getElementById('stop').addEventListener('click', function () {
-            console.log('Stop');
-        });
-
-        document.getElementById('scan-button').addEventListener('click', function () {
-            console.log('Scanning for devices...');
-        });
-
-        document.getElementById('disconnect-button').addEventListener('click', function () {
-            console.log('Disconnecting...');
-        });
-    </script>
 </body>
 
 </html>

@@ -1,0 +1,479 @@
+/* Algemene instellingen */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background-color: #f4f4f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* Container voor alle content */
+.container {
+    width: 90%;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    text-align: center;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+h1 {
+    font-size: 24px;
+    color: #222;
+}
+
+/* Dark mode toggle */
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+    width: 60px;
+    /* Verhoog de breedte van de slider */
+    height: 30px;
+    /* Verhoog de hoogte van de slider */
+}
+
+.slider {
+    width: 100%;
+    height: 100%;
+    background-color: #ccc;
+    border-radius: 15px;
+    /* Maak de slider meer afgerond */
+    position: relative;
+    transition: 0.3s;
+    /* Maak de overgang van de kleur en beweging vloeiender */
+}
+
+.slider:before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+/* Als de checkbox is ingeschakeld */
+input:checked+.slider {
+    background-color: #666;
+}
+
+input:checked+.slider:before {
+    transform: translateX(30px);
+    /* Verplaats de knop naar de andere kant */
+}
+
+
+/* Verberg de checkbox zelf */
+.dark-mode-toggle input {
+    display: none;
+    /* Verbergt de checkbox */
+}
+
+/* Dark mode toggle basisstijl */
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Zorgt ervoor dat de slider en de tekst goed gepositioneerd zijn */
+    width: 150px;
+    /* Ruimte voor de tekst en schakelaar */
+    height: 40px;
+    /* Hoogte van de toggle */
+    background-color: #ccc;
+    border-radius: 20px;
+    position: relative;
+    transition: background-color 0.3s ease;
+    /* Soepele overgang van achtergrondkleur */
+}
+
+/* De tekst naast de slider */
+.dark-mode-toggle span {
+    margin-right: 10px;
+    /* Ruimte tussen de tekst en de slider */
+    color: #333;
+    font-size: 16px;
+    flex-shrink: 0;
+    /* Zorgt ervoor dat de tekst niet samengedrukt wordt */
+}
+
+/* Styling voor de slider zelf */
+.slider {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 30px;
+    /* De breedte van de schuifknop */
+    height: 30px;
+    /* De hoogte van de schuifknop */
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    /* Animaties voor schuiven en achtergrondkleur */
+}
+
+/* Wanneer de checkbox is ingeschakeld (dark mode actief) */
+input:checked+.slider {
+    transform: translateX(80px);
+    /* Beweeg de knop naar rechts */
+    background-color: #4caf50;
+    /* Groene achtergrond wanneer ingeschakeld */
+}
+
+/* Zon- en maan icoon toevoegen in de slider */
+.slider:before {
+    content: '☼';
+    /* Zon icoon voor light mode */
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    font-size: 18px;
+    color: #333;
+    transition: 0.3s ease;
+    /* Animatie voor het verplaatsen van de symbolen */
+}
+
+/* Wanneer dark mode is ingeschakeld (maan icoon) */
+input:checked+.slider:before {
+    content: '☾';
+    /* Maan icoon voor dark mode */
+    left: 3px;
+    color: #fff;
+    /* Maak het icoon wit in dark mode */
+}
+
+/* Als de dark mode is ingeschakeld */
+body.dark-mode {
+    background-color: #1a1a1a;
+    color: #f4f4f9;
+}
+
+.container.dark-mode {
+    background-color: #333;
+    color: #f4f4f9;
+}
+
+/* Verander de knoppen in dark mode */
+.scan-btn.dark-mode,
+#connect-btn.dark-mode,
+.control.dark-mode,
+.vertical-controls-btn.dark-mode,
+.stop-btn.dark-mode,
+.disconnect-btn.dark-mode {
+    background-color: #444;
+    color: #f4f4f9;
+}
+
+.scan-btn.dark-mode:hover,
+#connect-btn.dark-mode:hover,
+.control.dark-mode:hover,
+.vertical-controls-btn.dark-mode:hover,
+.stop-btn.dark-mode:hover,
+.disconnect-btn.dark-mode:hover {
+    background-color: #555;
+}
+
+.status-section.dark-mode {
+    background-color: #333;
+}
+
+
+.devices-section {
+    margin-top: 20px;
+}
+
+.scan-btn {
+    padding: 8px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    margin: 5px;
+    transition: background-color 0.3s;
+    display: flex;
+    margin-left: auto;
+    border-radius: 17px;
+}
+
+#connect-btn {
+    padding: 8px 16px;
+    font-size: 16px;
+    cursor: pointer;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    margin: 5px;
+    transition: background-color 0.3s;
+    display: none;
+    margin-bottom: 40px;
+    border-radius: 17px;
+}
+
+#connect-btn:disabled {
+    background-color: #ccc;
+    /* Maak de knop grijs als deze uitgeschakeld is */
+    cursor: not-allowed;
+}
+
+#connect-btn.active {
+    display: inline-block;
+    /* Maak de knop zichtbaar als de scan is voltooid */
+}
+
+.scan-btn:hover,
+#connect-btn:hover {
+    background-color: #333;
+}
+
+.device-list {
+    list-style-type: none;
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0;
+    margin: 0;
+}
+
+/* Controls layout */
+.controls-layout {
+    display: flex;
+    justify-content: center;
+    /* Zorgt ervoor dat de knoppen in het midden staan */
+    align-items: center;
+    /* Zorgt ervoor dat de knoppen verticaal gecentreerd zijn */
+    gap: 10px;
+    /* Ruimte tussen de knoppen */
+    margin-top: 20px;
+    height: 150px;
+}
+
+/* Linker en rechter knoppen (pijltjes) */
+.control {
+    height: 100%;
+    /* Zorgt ervoor dat de hoogte van de knop de hoogte van de container volgt */
+    width: 350px;
+    /* Verklein de breedte van de knoppen */
+    font-size: 36px;
+    /* Maak de pijltjes groter */
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border-radius: 17px;
+}
+
+.control:hover {
+    background-color: #555;
+    /* Verandert de kleur wanneer je over de knop hovert */
+}
+
+.vertical-controls {
+    display: flex;
+    flex-direction: column;
+    /* Zorgt ervoor dat de knoppen verticaal gestapeld zijn */
+    justify-content: space-between;
+    /* Zorgt ervoor dat de ruimte gelijkmatig wordt verdeeld tussen de knoppen */
+    height: 100%;
+    /* Zorgt ervoor dat de knoppen de volledige hoogte vullen */
+    gap: 10px;
+    /* Klein beetje ruimte tussen de knoppen */
+}
+
+.vertical-controls-btn {
+    height: 50%;
+    /* Zorgt ervoor dat de verticale knoppen even groot zijn en de helft van de hoogte vullen */
+    width: 350px;
+    /* Zet een vaste breedte voor de verticale knoppen */
+    font-size: 36px;
+    /* Verhoog de lettergrootte */
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border-radius: 17px;
+}
+
+.vertical-controls-btn:hover {
+    background-color: #555;
+}
+
+.stop-btn {
+    background-color: red;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 20px;
+    height: 50px;
+    width: 150px;
+    border-radius: 17px;
+}
+
+.stop-btn:hover {
+    background-color: darkred;
+}
+
+.status-section {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.connected {
+    color: green;
+}
+
+.disconnect-btn {
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+}
+
+.disconnect-btn:hover {
+    background-color: #555;
+}
+
+.device-item {
+    padding: 8px;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    margin: 5px 0;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.device-item:hover {
+    background-color: #f0f0f0;
+}
+
+.device-item.selected {
+    background-color: #007bff;
+    color: #fff;
+}
+
+/* Algemeen ontwerp voor de status-sectie */
+.status-section {
+    background-color: #f4f4f9;
+    /* Lichte achtergrondkleur */
+    border-radius: 10px;
+    /* Afronding van de hoeken */
+    padding: 20px;
+    /* Voeg padding toe voor ruimte binnenin de sectie */
+    margin: 20px auto;
+    /* Centreert de sectie en voegt een marge toe */
+    width: 80%;
+    /* Breedte instellen (80% van de container) */
+    max-width: 600px;
+    /* Maximaal 600px breed */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    /* Lichte schaduw voor diepte */
+    display: flex;
+    justify-content: space-between;
+    /* Zorgt voor spreiding van de inhoud naar links en rechts */
+    align-items: flex-start;
+    /* Zorgt ervoor dat de inhoud aan de bovenkant uitgelijnd is */
+}
+
+/* Info sectie (linkerkant) */
+.info {
+    display: flex;
+    flex-direction: column;
+    /* Zet de informatie onder elkaar */
+    align-items: flex-start;
+    /* Zorgt ervoor dat de tekst links uitgelijnd is */
+    gap: 10px;
+    /* Ruimte tussen de regels */
+}
+
+.info p {
+    font-size: 16px;
+    /* Zet de tekstgrootte van de paragraaf */
+    color: #333;
+    /* Donkere tekstkleur voor leesbaarheid */
+}
+
+/* Status sectie (rechterkant) */
+.status {
+    display: flex;
+    flex-direction: column;
+    /* Zet de status en de knop onder elkaar */
+    align-items: flex-end;
+    /* Zorgt ervoor dat de tekst en de knop aan de rechterkant staan */
+    gap: 10px;
+    /* Ruimte tussen de tekst en de knop */
+}
+
+.status p {
+    font-size: 16px;
+    color: #333;
+}
+
+#status-indicator {
+    font-weight: bold;
+}
+
+/* Styling voor de 'Disconnected' status */
+.disconnected {
+    color: #ff4d4d;
+    /* Rood voor disconnected status */
+}
+
+/* Knop styling */
+.disconnect-btn {
+    background-color: #ff4d4d;
+    /* Rode achtergrond voor de knop */
+    color: white;
+    /* Witte tekstkleur */
+    padding: 10px 20px;
+    /* Ruimte rond de tekst in de knop */
+    font-size: 16px;
+    /* Instellen van de tekstgrootte */
+    border: none;
+    /* Geen rand */
+    border-radius: 4px;
+    /* Afronding van de hoeken van de knop */
+    cursor: pointer;
+    /* Verandert de cursor naar een pointer bij hover */
+    transition: background-color 0.3s;
+    /* Verandert de achtergrondkleur bij hover */
+    border-radius: 17px;
+}
+
+/* Hover effect voor de knop */
+.disconnect-btn:hover {
+    background-color: #e04e4e;
+    /* Donkerder rood bij hover */
+}
