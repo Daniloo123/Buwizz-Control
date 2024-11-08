@@ -3,7 +3,9 @@ let selectedDeviceAddress = null;
 async function scanDevices() {
     // Toon de scan-knop niet zichtbaar als het scannen bezig is, of zet iets anders om aan te geven dat de scan loopt
     const connectButton = document.getElementById('connect-btn');
+    const scanButton = document.getElementById('scan-btn');
     connectButton.style.display = "none";  // Verberg de connect-knop tijdens de scan
+    scanButton.style.display = "none";    // Verberg de scan-knop tijdens het scannen
 
     const response = await fetch('/scan');
     const devices = await response.json();
@@ -17,7 +19,6 @@ async function scanDevices() {
             listItem.classList.add("device-item");
             listItem.onclick = () => selectDevice(device.address, listItem);
             devicesList.appendChild(listItem);
-
         });
 
         // Maak de "Connect"-knop zichtbaar nadat de scan is voltooid
@@ -26,45 +27,104 @@ async function scanDevices() {
     } else {
         alert('No devices found.');
     }
+
+    // Herstel de scan-knop zodra de scan is voltooid
+    scanButton.style.display = "inline-block";  // Maak de scan-knop weer zichtbaar
 }
 
 function selectDevice(address, listItem) {
     selectedDeviceAddress = address;
     document.getElementById('connect-btn').disabled = false;
 
-    // Mark the selected item
+    // Markeer de geselecteerde item
     document.querySelectorAll('.device-item').forEach(item => item.classList.remove('selected'));
     listItem.classList.add('selected');
 }
 
 async function connectSelectedDevice() {
     if (selectedDeviceAddress) {
-        const response = await fetch(`/connect/${selectedDeviceAddress}`);
-        const result = await response.json();
-        document.getElementById('status-indicator').textContent = result.status;
-        document.getElementById('status-indicator').classList.toggle("connected", result.status === "Connected");
-    }
-}
+        try {
+            // Stuur een POST-verzoek naar de server met het geselecteerde apparaatadres
+            const response = await fetch('/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ device_address: selectedDeviceAddress })
+            });
 
-// Dark mode toggle
-// Haal de dark mode switch op
-const darkModeSwitch = document.getElementById('darkModeSwitch');
+            // Controleer of de response van de server succesvol was
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
 
-// Controleer de opgeslagen dark mode instelling bij het laden van de pagina
-if (localStorage.getItem('darkMode') === 'enabled') {
-    document.body.classList.add('dark-mode');
-    darkModeSwitch.checked = true; // Zorg ervoor dat de toggle in de juiste staat staat
-}
+            const result = await response.json(); // Verkrijg het resultaat van de server
+            console.log('Server response:', result); // Log de server response voor debugging
 
-// Voeg een event listener toe om de dark mode in te schakelen of uit te schakelen
-darkModeSwitch.addEventListener('change', () => {
-    if (darkModeSwitch.checked) {
-        document.body.classList.add('dark-mode');
-        localStorage.setItem('darkMode', 'enabled'); // Bewaar de voorkeur in localStorage
+            alert(result.message); // Toon een alert met het serverbericht
+
+            // Update de statusindicator en voeg de klasse "connected" toe als verbonden
+            document.getElementById('status-indicator').textContent = "Connected";
+            document.getElementById('status-indicator').classList.remove("disconnected");
+            document.getElementById('status-indicator').classList.add("connected");
+
+            // Verberg de connect-knop en toon enkel het verbonden apparaat in de lijst
+            document.getElementById('connect-btn').style.display = "none"; // Verberg de connect knop
+            document.getElementById('scan-btn').style.display = "none"; // Verberg de scan knop
+
+            // Markeer de verbonden item in de lijst en zorg dat alleen deze zichtbaar is
+            const deviceItems = document.querySelectorAll('.device-item');
+            deviceItems.forEach(item => {
+                if (item.textContent.includes(selectedDeviceAddress)) {
+                    item.classList.add('connected');
+                } else {
+                    item.style.display = 'none';  // Verberg andere apparaten
+                }
+            });
+
+        } catch (error) {
+            console.error('Connection failed:', error);
+            alert('Connection failed. Please try again.');
+        }
     } else {
-        document.body.classList.remove('dark-mode');
-        localStorage.setItem('darkMode', 'disabled'); // Bewaar de voorkeur in localStorage
+        alert('Please select a Bluetooth device to connect.');
     }
-});
+}
 
+// Functie om de verbinding te verbreken
+async function disconnectDevice() {
+    try {
+        // Verzenden van de POST-aanroep naar de /disconnect route van de server
+        const response = await fetch('/disconnect', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Verwerken van de JSON-response
+        const result = await response.json();
+
+        if (response.ok) {
+            // Indien succesvol, geef een bericht weer
+            alert(result.message);
+
+            // Controleer of de server een instructie geeft om de pagina te verversen
+            if (result.refresh) {
+                // Verfris de pagina
+                window.location.reload();
+            } else {
+                // Update de UI of schakelt knoppen in/uit
+                updateButtonStates(false);  // Bijv. schakelt de connectieknop weer in
+            }
+        } else {
+            // Bij een mislukking, geef een foutmelding weer
+            alert(`Error: ${result.message}`);
+        }
+    } catch (error) {
+        // Bij een netwerk- of serverfout
+        alert("Er is een fout opgetreden bij het verbreken van de verbinding.");
+        console.error(error);
+    }
+}
 
