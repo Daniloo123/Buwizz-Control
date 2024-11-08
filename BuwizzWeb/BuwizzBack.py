@@ -15,6 +15,9 @@ CHARACTERISTIC_APPLICATION_UUID = "50052901-74fb-4481-88b3-9919b1676e93"
 motor_port_data_1 = 0
 motor_port_data_4 = 0
 client = None
+max_speed = 127
+speed_increment = 50
+speed_increment_motor_4 = 25
 connected_device = None
 
 @app.route('/')
@@ -85,8 +88,41 @@ async def disconnect_from_device():
 # Functie om motorsnelheid aan te passen
 @app.route('/motor_control', methods=['POST'])
 async def motor_control():
-    # Hier voeg je de code toe om de snelheid te verwerken en naar de BuWizz te sturen
-    return jsonify({"status": "ok"})
+    global motor_port_data_1, motor_port_data_4, client
 
+    # Verkrijg het richtingcommando van de frontend
+    direction = request.json.get('direction')
+
+    # Pas motorsnelheden aan op basis van het commando
+    if direction == 'up':
+        motor_port_data_1 = max(motor_port_data_1 - speed_increment, -max_speed)  # Achteruit
+    elif direction == 'down':
+        motor_port_data_1 = min(motor_port_data_1 + speed_increment, max_speed)   # Vooruit
+    elif direction == 'left':
+        motor_port_data_4 = min(motor_port_data_4 + speed_increment_motor_4, 70)  # Links
+    elif direction == 'right':
+        motor_port_data_4 = max(motor_port_data_4 - speed_increment_motor_4, -70) # Rechts
+    elif direction == 'stop':
+        motor_port_data_1 = 0  # Stop motor 1
+        motor_port_data_4 = 0  # Stop motor 4
+
+    # Verzend het aangepaste motorcommando naar BuWizz
+    await send_motor_command(client, motor_port_data_1, motor_port_data_4)
+    return jsonify({"status": "success", "message": f"Executed {direction} command"})
+    
+    
+    
+async def send_motor_command(client, speed_1, speed_4):
+    """Verstuur motorsnelheidscommando naar BuWizz"""
+    def transform_speed(speed):
+        if speed < 0:
+            return 256 + speed  # Hierdoor wordt -1 -> 255, -127 -> 129 etc.
+        return speed
+
+    transformed_speed_1 = transform_speed(speed_1)
+    transformed_speed_4 = transform_speed(speed_4)
+    b_array = bytearray([0x30, transformed_speed_1, 0x00, 0x00, transformed_speed_4, 0x00, 0x00, 0x00, 0x00])
+    await client.write_gatt_char(CHARACTERISTIC_APPLICATION_UUID, b_array, response=False)
+    
 if __name__ == '__main__':
     app.run(debug=True)

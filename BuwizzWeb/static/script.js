@@ -127,4 +127,48 @@ async function disconnectDevice() {
         console.error(error);
     }
 }
+document.addEventListener('DOMContentLoaded', () => {
+    // Voeg event listeners toe voor de pijltjestoetsen
+    document.addEventListener('keydown', (event) => {
+        switch (event.key) {
+            case 'ArrowUp':
+                sendCommand('up');
+                break;
+            case 'ArrowDown':
+                sendCommand('down');
+                break;
+            case 'ArrowLeft':
+                sendCommand('left');
+                break;
+            case 'ArrowRight':
+                sendCommand('right');
+                break;
+            case ' ':
+                sendCommand('stop');
+                break;
+        }
+    });
+});
+
+async function sendCommand(direction) {
+    try {
+        // Verstuur een POST-verzoek naar de server met de commando
+        const response = await fetch('/motor_control', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ direction: direction })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        const result = await response.json();
+        console.log('Motor command response:', result);
+    } catch (error) {
+        console.error('Error sending command:', error);
+    }
+}
+
 
