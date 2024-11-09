@@ -82,6 +82,8 @@ async function connectSelectedDevice() {
                 }
             });
 
+            // Start periodieke updates voor batterij en stroomwaarden
+            setInterval(updateDeviceStatus, 1000); // Update elke seconde
         } catch (error) {
             console.error('Connection failed:', error);
             alert('Connection failed. Please try again.');
@@ -127,6 +129,7 @@ async function disconnectDevice() {
         console.error(error);
     }
 }
+
 document.addEventListener('DOMContentLoaded', () => {
     // Voeg event listeners toe voor de pijltjestoetsen
     document.addEventListener('keydown', (event) => {
@@ -171,4 +174,27 @@ async function sendCommand(direction) {
     }
 }
 
+// Functie om de batterijstatus en stroomgegevens van de motor te updaten
+async function updateDeviceStatus() {
+    try {
+        // Haal de status van de server op (je moet zorgen dat de server deze route aanbiedt)
+        const response = await fetch('/status');
+        const statusData = await response.json();
+
+        if (response.ok) {
+            // Update batterijstatus
+            document.getElementById('battery-level').textContent = `${statusData.battery_level}%`;
+
+            // Update stroomverbruik per poort
+            document.getElementById('volt1').textContent = `${statusData.motor_currents[0]} A`;
+            document.getElementById('volt2').textContent = `${statusData.motor_currents[1]} A`;
+            document.getElementById('volt3').textContent = `${statusData.motor_currents[2]} A`;
+            document.getElementById('volt4').textContent = `${statusData.motor_currents[3]} A`;
+        } else {
+            console.error('Failed to fetch status data');
+        }
+    } catch (error) {
+        console.error('Error fetching status:', error);
+    }
+}
 
