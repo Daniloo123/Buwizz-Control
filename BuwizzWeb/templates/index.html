@@ -13,7 +13,79 @@
     <div class="container">
         <header>
             <h1>BuWizz Controller</h1>
-            <label class="dark-mode-toggle">
+            <label class="dark-mode-toggle"><!DOCTYPE html>
+                <html lang="en">
+                
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>BuWizz Controller</title>
+                    <link rel="stylesheet" href="/static/styles.css">
+                    <script src="/static/script.js" defer></script>
+                </head>
+                
+                <body>
+                    <div class="container">
+                        <header>
+                            <h1>BuWizz Controller</h1>
+                            <label class="dark-mode-toggle">
+                                Dark Mode
+                                <input type="checkbox" id="darkModeSwitch">
+                                <span class="slider"></span>
+                            </label>
+                        </header>
+                
+                        <!-- Apparaten scan- en selectiegedeelte -->
+                        <section class="devices-section">
+                            <h3>Available BuWizz Devices</h3>
+                            <button id="scan-btn" class="scan-btn" onclick="scanDevices()">Scan</button>
+                            <ul id="devices" class="device-list"></ul>
+                            <button id="connect-btn" onclick="connectSelectedDevice()" disabled>Connect</button>
+                        </section>
+                
+                        <!-- Besturingsgedeelte voor apparaat -->
+                        <section class="controls-section">
+                            <h3>Device Control</h3>
+                            <div class="controls-layout">
+                                <!-- Linker pijl knop -->
+                                <button onclick="sendCommand('left')" class="control">←</button>
+                
+                                <!-- Midden: verticale knoppen -->
+                                <div class="vertical-controls">
+                                    <button onclick="sendCommand('up')" class="vertical-controls-btn">↑</button>
+                                    <button onclick="sendCommand('down')" class="vertical-controls-btn">↓</button>
+                                </div>
+                
+                                <!-- Rechter pijl knop -->
+                                <button onclick="sendCommand('right')" class="control">→</button>
+                            </div>
+                            <button onclick="sendCommand('stop')" class="stop-btn">Stop</button>
+                        </section>
+                
+                
+                        <!-- Batterij- en statusgedeelte -->
+                        <section class="status-section">
+                            <div class="info">
+                                <p><b>Battery Level: <span id="battery-level"></span></b></p>
+                                <p><b>Poort 1 Stroom: <span id="volt1"></span></b></p>
+                                <p><b>Poort 2 Stroom: <span id="volt2"></span></b></p>
+                                <p><b>Poort 3 Stroom: <span id="volt3"></span></b></p>
+                                <p><b>Poort 4 Stroom: <span id="volt4"></span></b></p>
+                            </div>
+                            <div class="status">
+                                <div>
+                                    <p>Status: <span id="status-indicator" class="disconnected">Disconnected</span></p>
+                                </div>
+                                <button onclick="disconnectDevice()" class="disconnect-btn">Disconnect</button>
+                            </div>
+                        </section>
+                
+                
+                
+                    </div>
+                </body>
+                
+                </html>
                 Dark Mode
                 <input type="checkbox" id="darkModeSwitch">
                 <span class="slider"></span>

@@ -119,6 +119,12 @@ async function disconnectDevice() {
                 // Update de UI of schakelt knoppen in/uit
                 updateButtonStates(false);  // Bijv. schakelt de connectieknop weer in
             }
+
+            // Update de statusindicator naar 'Disconnected'
+            document.getElementById('status-indicator').textContent = "Disconnected";
+            document.getElementById('status-indicator').classList.remove("connected");
+            document.getElementById('status-indicator').classList.add("disconnected");
+
         } else {
             // Bij een mislukking, geef een foutmelding weer
             alert(`Error: ${result.message}`);
@@ -129,6 +135,7 @@ async function disconnectDevice() {
         console.error(error);
     }
 }
+
 
 document.addEventListener('DOMContentLoaded', () => {
     // Voeg event listeners toe voor de pijltjestoetsen
